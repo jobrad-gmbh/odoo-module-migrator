@@ -107,7 +107,7 @@ def reformat_assets_definition(
                             )
                             remove_node_from_xml(record_node, file)
                     remove_node_from_xml(record_node, xpath_elem)
-            remove_node_from_xml(record_node, node)
+                remove_node_from_xml(record_node, node)
         # write back the node to the XML file
         with open(os.path.join(module_path, file_path), "wb") as f:
             et.indent(tree)
@@ -119,6 +119,7 @@ def reformat_assets_definition(
     manifest_content = manifest_content.replace(": true", ": True").replace(
         ": false", ": False"
     )
+    manifest_content += '\n'
     tools._write_content(manifest_path, manifest_content)
 
 
