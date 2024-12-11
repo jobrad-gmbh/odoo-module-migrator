@@ -84,7 +84,12 @@ def reformat_assets_definition(
 ):
     """Reformat assets declaration in XML files."""
 
-    parser = et.XMLParser(remove_blank_text=True)
+    parser = et.XMLParser(
+        remove_blank_text=False,
+        remove_comments=False,
+        resolve_entities=False,
+        strip_cdata=False
+    )
 
     manifest = tools._get_manifest_dict(manifest_path)
     for file_path in manifest.get("data", []):
@@ -115,7 +120,7 @@ def reformat_assets_definition(
         # write back the node to the XML file
         with open(os.path.join(module_path, file_path), "wb") as f:
             et.indent(tree)
-            tree.write(f, encoding="utf-8", xml_declaration=True)
+            tree.write(f, encoding="utf-8", xml_declaration=True, pretty_print=True)
         if not record_node.getchildren():
             remove_asset_file_from_manifest(file_path, manifest)
             os.remove(os.path.join(module_path, file_path))
