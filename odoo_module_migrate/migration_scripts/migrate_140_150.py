@@ -266,14 +266,12 @@ def _determine_indentation(manifest_source: str) -> int:
         if leading_spaces == 0:
             continue
 
-        indentation_ok = False
         for factor in ALLOWED_INDENTATIONS:
             if leading_spaces % factor == 0:
                 indentations.append(factor)
-                indentation_ok = True
 
-        if not indentation_ok:
-            raise RuntimeError("Unexpected indentation a manifest file.")
+    if not indentations:
+        raise RuntimeError(f"Could not determine the indentation in a manifest file:\n{manifest_source}")
 
     element: int
     (element, _), = Counter(indentations).most_common(1)
