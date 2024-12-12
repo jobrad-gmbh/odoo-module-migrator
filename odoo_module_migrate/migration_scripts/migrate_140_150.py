@@ -223,7 +223,7 @@ def _inject_assets_dict(manifest_source: str, assets: dict, quote_char: str, ind
     assets_dict_str = _format_dict({"assets": assets}, quote_char, indentation)
     assets_dict_str = assets_dict_str[1:len(assets_dict_str) - 1].rstrip()
 
-    delimiter = "," if manifest_source[index] != "," else ""
+    delimiter = "," if manifest_source[index - 1] != "," else ""
 
     manifest_source_new = manifest_source[:index] + delimiter + assets_dict_str + manifest_source[index:]
     return manifest_source_new
