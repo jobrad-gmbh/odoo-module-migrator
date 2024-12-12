@@ -56,9 +56,9 @@ ASSET_VIEWS = [
 ALLOWED_INDENTATIONS = [4, 2, 3]
 
 
-def add_asset_to_manifest(assets: dict, asset_type: str, asset_files: list) -> None:
+def add_asset_to_manifest(assets: dict, asset_type: str, asset_file: str) -> None:
     """Add an asset to a manifest file."""
-    assets[asset_type].extend(asset_files)
+    assets[asset_type].append(asset_file)
 
 
 def remove_asset_file_from_manifest(data: list, file: str) -> None:
@@ -187,8 +187,9 @@ def reformat_assets_definition(
 
     parser = et.XMLParser(
         remove_blank_text=False,
-        remove_comments=False,
         resolve_entities=False,
+        remove_comments=False,
+        remove_pis=False,
         strip_cdata=False
     )
 
@@ -211,19 +212,18 @@ def reformat_assets_definition(
         tree = et.parse(xml_file, parser)
         record_node = tree.getroot()
         for node in record_node.getchildren():
-            if node.get("inherit_id") in ASSET_VIEWS:
-                for xpath_elem in node.xpath("xpath[@expr]"):
-                    for file in xpath_elem.getchildren():
-                        elem_file_path = False
-                        if file.get("src"):
-                            elem_file_path = ["".join(file.get("src"))]
-                        elif file.get("href"):
-                            elem_file_path = ["".join(file.get("href"))]
-                        if elem_file_path:
-                            add_asset_to_manifest(assets_dict, node.get("inherit_id"), elem_file_path)
-                            remove_node_from_xml(record_node, file)
-                    remove_node_from_xml(record_node, xpath_elem)
-                remove_node_from_xml(record_node, node)
+            inherit_id = node.get("inherit_id")
+            if inherit_id not in ASSET_VIEWS:
+                continue
+
+            for xpath_elem in node.xpath("xpath[@expr]"):
+                for file in xpath_elem.getchildren():
+                    if elem_file_path := file.get("src") or file.get("href"):
+                        add_asset_to_manifest(assets_dict, inherit_id, elem_file_path)
+                        remove_node_from_xml(record_node, file)
+
+                remove_node_from_xml(record_node, xpath_elem)
+            remove_node_from_xml(record_node, node)
 
         # write back the node to the XML file
         with open(os.path.join(module_path, file_path), "wb") as f:
@@ -235,8 +235,11 @@ def reformat_assets_definition(
             os.remove(os.path.join(module_path, file_path))
 
     # update the manifest
-    manifest_source = inject_assets_dict(manifest_source, assets_dict, quote_char, indentation)
-    manifest_source = replace_data_list(manifest_source, data_list, quote_char, indentation)
+    if assets_dict:
+        manifest_source = inject_assets_dict(manifest_source, assets_dict, quote_char, indentation)
+    if data_list:
+        manifest_source = replace_data_list(manifest_source, data_list, quote_char, indentation)
+
     tools._write_content(manifest_path, manifest_source)
 
 
