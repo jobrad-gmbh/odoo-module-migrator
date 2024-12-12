@@ -56,17 +56,81 @@ ASSET_VIEWS = [
 ALLOWED_INDENTATIONS = [4, 2, 3]
 
 
-def add_asset_to_manifest(assets: dict, asset_type: str, asset_file: str) -> None:
+def reformat_assets_definition(
+        logger, module_path, module_name, manifest_path, migration_steps, tools
+):
+    """Reformat assets declaration in XML files."""
+
+    parser = et.XMLParser(
+        remove_blank_text=False,
+        resolve_entities=False,
+        remove_comments=False,
+        remove_pis=False,
+        strip_cdata=False
+    )
+
+    with open(manifest_path, "rt") as f:
+        manifest_source = f.read()
+
+    quote_char = _determine_quote_char(manifest_source)
+    indentation = _determine_indentation(manifest_source)
+
+    manifest = tools._get_manifest_dict(manifest_path)
+
+    assets_dict = defaultdict(list)
+    data_list_original: list = manifest.get("data", [])
+    data_list = data_list_original.copy()
+
+    for file_path in data_list_original:
+        if not file_path.endswith(".xml"):
+            continue
+
+        xml_file = open(os.path.join(module_path, file_path), "r")
+        tree = et.parse(xml_file, parser)
+        record_node = tree.getroot()
+        for node in record_node.getchildren():
+            inherit_id = node.get("inherit_id")
+            if inherit_id not in ASSET_VIEWS:
+                continue
+
+            for xpath_elem in node.xpath("xpath[@expr]"):
+                for file in xpath_elem.getchildren():
+                    if elem_file_path := file.get("src") or file.get("href"):
+                        _add_asset_to_manifest(assets_dict, inherit_id, elem_file_path)
+                        _remove_node_from_xml(record_node, file)
+
+                _remove_node_from_xml(record_node, xpath_elem)
+            _remove_node_from_xml(record_node, node)
+
+        # write back the node to the XML file
+        with open(os.path.join(module_path, file_path), "wb") as f:
+            et.indent(tree)
+            tree.write(f, encoding="utf-8", xml_declaration=True, pretty_print=True)
+
+        if not record_node.getchildren():
+            _remove_asset_file_from_manifest(data_list, file_path)
+            os.remove(os.path.join(module_path, file_path))
+
+    # update the manifest
+    if assets_dict:
+        manifest_source = _inject_assets_dict(manifest_source, assets_dict, quote_char, indentation)
+    if data_list_original and data_list != data_list_original:
+        manifest_source = _replace_data_list(manifest_source, data_list, quote_char, indentation)
+
+    tools._write_content(manifest_path, manifest_source)
+
+
+def _add_asset_to_manifest(assets: dict, asset_type: str, asset_file: str) -> None:
     """Add an asset to a manifest file."""
     assets[asset_type].append(asset_file)
 
 
-def remove_asset_file_from_manifest(data: list, file: str) -> None:
+def _remove_asset_file_from_manifest(data: list, file: str) -> None:
     """Remove asset file from manifest views."""
     data.remove(file)
 
 
-def remove_node_from_xml(record_node, node):
+def _remove_node_from_xml(record_node, node):
     """Remove a node from an XML tree."""
     to_remove = True
     if node.getchildren():
@@ -76,7 +140,7 @@ def remove_node_from_xml(record_node, node):
         parent.remove(node)
 
 
-def find_assets_inject_index(manifest_source: str) -> int:
+def _find_assets_inject_index(manifest_source: str) -> int:
     ast_tree: ast.Module = asttokens.ASTTokens(manifest_source, parse=True).tree
 
     ast_dict_expr, = ast_tree.body
@@ -92,7 +156,7 @@ def find_assets_inject_index(manifest_source: str) -> int:
     return assets_inject_index
 
 
-def find_data_index_range(manifest_source: str) -> Tuple[int, int]:
+def _find_data_index_range(manifest_source: str) -> Tuple[int, int]:
     ast_tree: ast.Module = asttokens.ASTTokens(manifest_source, parse=True).tree
 
     ast_dict_expr, = ast_tree.body
@@ -118,9 +182,9 @@ def find_data_index_range(manifest_source: str) -> Tuple[int, int]:
     raise RuntimeError("Unable to find data list in the manifest.")
 
 
-def inject_assets_dict(manifest_source: str, assets: dict, quote_char: str, indentation: int) -> str:
-    index = find_assets_inject_index(manifest_source)
-    assets_dict_str = format_dict({"assets": assets}, quote_char, indentation)
+def _inject_assets_dict(manifest_source: str, assets: dict, quote_char: str, indentation: int) -> str:
+    index = _find_assets_inject_index(manifest_source)
+    assets_dict_str = _format_dict({"assets": assets}, quote_char, indentation)
     assets_dict_str = assets_dict_str[1:len(assets_dict_str) - 1].rstrip()
 
     delimiter = "," if manifest_source[index] != "," else ""
@@ -129,9 +193,9 @@ def inject_assets_dict(manifest_source: str, assets: dict, quote_char: str, inde
     return manifest_source_new
 
 
-def replace_data_list(manifest_source: str, data: list, quote_char: str, indentation: int) -> str:
-    index_start, index_end = find_data_index_range(manifest_source)
-    data_list_str = format_dict({"data": data}, quote_char, indentation)
+def _replace_data_list(manifest_source: str, data: list, quote_char: str, indentation: int) -> str:
+    index_start, index_end = _find_data_index_range(manifest_source)
+    data_list_str = _format_dict({"data": data}, quote_char, indentation)
     data_list_str = data_list_str[1:len(data_list_str) - 1].rstrip()
 
     manifest_source_new = manifest_source[:index_start] + data_list_str + manifest_source[index_end:]
@@ -139,8 +203,8 @@ def replace_data_list(manifest_source: str, data: list, quote_char: str, indenta
     return manifest_source_new
 
 
-def format_dict(assets: dict, quote_char: str, indentation: int) -> str:
-    assets_str = json.dumps(assets, indent=indentation).replace(": true", ": True").replace(
+def _format_dict(dictionary: dict, quote_char: str, indentation: int) -> str:
+    assets_str = json.dumps(dictionary, indent=indentation).replace(": true", ": True").replace(
         ": false", ": False"
     )
 
@@ -150,13 +214,13 @@ def format_dict(assets: dict, quote_char: str, indentation: int) -> str:
     return assets_str
 
 
-def determine_quote_char(manifest_source: str) -> str:
+def _determine_quote_char(manifest_source: str) -> str:
     single_count = manifest_source.count("'")
     double_count = manifest_source.count('"')
     return '"' if double_count >= single_count else "'"
 
 
-def determine_indentation(manifest_source: str) -> int:
+def _determine_indentation(manifest_source: str) -> int:
     indentations = []
     for line in manifest_source.splitlines():
         if not line.strip():
@@ -178,69 +242,6 @@ def determine_indentation(manifest_source: str) -> int:
     element: int
     (element, _), = Counter(indentations).most_common(1)
     return element
-
-
-def reformat_assets_definition(
-        logger, module_path, module_name, manifest_path, migration_steps, tools
-):
-    """Reformat assets declaration in XML files."""
-
-    parser = et.XMLParser(
-        remove_blank_text=False,
-        resolve_entities=False,
-        remove_comments=False,
-        remove_pis=False,
-        strip_cdata=False
-    )
-
-    with open(manifest_path, "rt") as f:
-        manifest_source = f.read()
-
-    quote_char = determine_quote_char(manifest_source)
-    indentation = determine_indentation(manifest_source)
-
-    manifest = tools._get_manifest_dict(manifest_path)
-
-    assets_dict = defaultdict(list)
-    data_list: list = manifest.get("data", [])
-
-    for file_path in data_list.copy():
-        if not file_path.endswith(".xml"):
-            continue
-
-        xml_file = open(os.path.join(module_path, file_path), "r")
-        tree = et.parse(xml_file, parser)
-        record_node = tree.getroot()
-        for node in record_node.getchildren():
-            inherit_id = node.get("inherit_id")
-            if inherit_id not in ASSET_VIEWS:
-                continue
-
-            for xpath_elem in node.xpath("xpath[@expr]"):
-                for file in xpath_elem.getchildren():
-                    if elem_file_path := file.get("src") or file.get("href"):
-                        add_asset_to_manifest(assets_dict, inherit_id, elem_file_path)
-                        remove_node_from_xml(record_node, file)
-
-                remove_node_from_xml(record_node, xpath_elem)
-            remove_node_from_xml(record_node, node)
-
-        # write back the node to the XML file
-        with open(os.path.join(module_path, file_path), "wb") as f:
-            et.indent(tree)
-            tree.write(f, encoding="utf-8", xml_declaration=True, pretty_print=True)
-
-        if not record_node.getchildren():
-            remove_asset_file_from_manifest(data_list, file_path)
-            os.remove(os.path.join(module_path, file_path))
-
-    # update the manifest
-    if assets_dict:
-        manifest_source = inject_assets_dict(manifest_source, assets_dict, quote_char, indentation)
-    if data_list:
-        manifest_source = replace_data_list(manifest_source, data_list, quote_char, indentation)
-
-    tools._write_content(manifest_path, manifest_source)
 
 
 class MigrationScript(BaseMigrationScript):
