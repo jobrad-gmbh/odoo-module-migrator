@@ -4,6 +4,7 @@
 import ast
 import json
 import os
+import re
 from collections import defaultdict, Counter
 from typing import Tuple
 
@@ -54,20 +55,13 @@ ASSET_VIEWS = [
 ]
 
 ALLOWED_INDENTATIONS = [4, 2, 3]
+EMPTY_LINE_PLACEHOLDER = "<?empty-line-oixbckyh?>"
 
 
 def reformat_assets_definition(
         logger, module_path, module_name, manifest_path, migration_steps, tools
 ):
     """Reformat assets declaration in XML files."""
-
-    parser = et.XMLParser(
-        remove_blank_text=False,
-        resolve_entities=False,
-        remove_comments=False,
-        remove_pis=False,
-        strip_cdata=False
-    )
 
     with open(manifest_path, "rt") as f:
         manifest_source = f.read()
@@ -85,10 +79,9 @@ def reformat_assets_definition(
         if not file_path.endswith(".xml"):
             continue
 
-        xml_file = open(os.path.join(module_path, file_path), "r")
-        tree = et.parse(xml_file, parser)
-        record_node = tree.getroot()
-        for node in record_node.getchildren():
+        xml_file_path: str = os.path.join(module_path, file_path)
+        tree = _parse_xml_file(xml_file_path)
+        for node in tree.getchildren():
             inherit_id = node.get("inherit_id")
             if inherit_id not in ASSET_VIEWS:
                 continue
@@ -97,17 +90,17 @@ def reformat_assets_definition(
                 for file in xpath_elem.getchildren():
                     if elem_file_path := file.get("src") or file.get("href"):
                         _add_asset_to_manifest(assets_dict, inherit_id, elem_file_path)
-                        _remove_node_from_xml(record_node, file)
+                        _remove_node_from_xml(tree, file)
 
-                _remove_node_from_xml(record_node, xpath_elem)
-            _remove_node_from_xml(record_node, node)
+                _remove_node_from_xml(tree, xpath_elem)
+            _remove_node_from_xml(tree, node)
 
         # write back the node to the XML file
-        with open(os.path.join(module_path, file_path), "wb") as f:
-            et.indent(tree)
-            tree.write(f, encoding="utf-8", xml_declaration=True, pretty_print=True)
+        xml_source = _serialize_xml_tree(tree)
+        with open(xml_file_path, "wt") as f:
+            print(xml_source, file=f, end="")
 
-        if not record_node.getchildren():
+        if not tree.getchildren():
             _remove_asset_file_from_manifest(data_list, file_path)
             os.remove(os.path.join(module_path, file_path))
 
@@ -118,6 +111,49 @@ def reformat_assets_definition(
         manifest_source = _replace_data_list(manifest_source, data_list, quote_char, indentation)
 
     tools._write_content(manifest_path, manifest_source)
+
+
+def _parse_xml_file(path: str) -> et.ElementTree:
+    parser = et.XMLParser(
+        remove_blank_text=False,
+        resolve_entities=False,
+        remove_comments=False,
+        remove_pis=False,
+        strip_cdata=False
+    )
+
+    xml_with_placeholders = ""
+    with open(path, "rt") as f:
+        for raw_line in f:
+            line = raw_line.strip()
+            if not line:
+                raw_line = EMPTY_LINE_PLACEHOLDER + '\n'
+            xml_with_placeholders += raw_line
+
+    tree = et.fromstring(xml_with_placeholders.encode("utf-8"), parser=parser)
+    return tree
+
+
+def _serialize_xml_tree(tree: et.ElementTree, indent_spaces=2) -> str:
+    et.indent(tree, space=" " * indent_spaces)
+    xml_formatted_with_placeholders = et.tostring(
+        tree,
+        pretty_print=True,
+        xml_declaration=True,
+        with_tail=True,
+        encoding="utf-8"
+    ).decode("utf-8")
+
+    xml_formatted = ""
+    for raw_line in xml_formatted_with_placeholders.splitlines(keepends=True):
+        line = raw_line.strip()
+        if line == EMPTY_LINE_PLACEHOLDER:
+            raw_line = "\n"
+        elif line.startswith("<?xml"):
+            raw_line = re.sub(r"(\w+)='([^']*)'", "\\1=\"\\2\"", raw_line)
+        xml_formatted += raw_line
+
+    return xml_formatted
 
 
 def _add_asset_to_manifest(assets: dict, asset_type: str, asset_file: str) -> None:
