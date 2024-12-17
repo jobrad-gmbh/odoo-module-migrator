@@ -297,7 +297,7 @@ def search_directories(logger, module_path: str):
     value_match_found = []
     t_raw_match_found = []
     t_esc_match_found = []
-    value_pattern_to_match = r"\${([^}]+)}"
+    value_pattern_to_match = r"\${([^}|]+)(\| ?safe)?}"
     value_replacement_text = r"{{ \1 }}"
     t_raw = "t-raw"
     t_esc = "t-esc"
@@ -305,23 +305,19 @@ def search_directories(logger, module_path: str):
     file_type_to_match = "^.*\.(xml)$"
     for root, dirs, files in os.walk(abs_path):
         for file_name in files:
-            abs_path = os.path.abspath(root + "/" + file_name)
-
-            if os.path.isdir(abs_path):
-                search_directories(abs_path)
-
-            if re.search(file_type_to_match, file_name) and os.path.isfile(abs_path):
-                xml_file = open(abs_path, "r")
+            file_path = os.path.join(root, file_name)
+            if re.search(file_type_to_match, file_name):
+                xml_file = open(file_path, "r")
                 data = xml_file.read()
                 if data and re.search(value_pattern_to_match, data):
-                    value_match_found.append(abs_path)
-                    replace_pattern_in_xml(abs_path, value_pattern_to_match, value_replacement_text)
+                    value_match_found.append(file_path)
+                    replace_pattern_in_xml(file_path, value_pattern_to_match, value_replacement_text)
                 if data and re.search(t_raw, data):
-                    t_raw_match_found.append(abs_path)
-                    replace_pattern_in_xml(abs_path, t_raw, t_out)
+                    t_raw_match_found.append(file_path)
+                    replace_pattern_in_xml(file_path, t_raw, t_out)
                 if data and re.search(t_esc, data):
-                    t_esc_match_found.append(abs_path)
-                    replace_pattern_in_xml(abs_path, t_esc, t_out)
+                    t_esc_match_found.append(file_path)
+                    replace_pattern_in_xml(file_path, t_esc, t_out)
     logger.debug("value match_found {0}".format(len(value_match_found)))
     logger.debug("t-raw match_found {0}".format(len(t_raw_match_found)))
     logger.debug("t-esc match_found {0}".format(len(t_esc_match_found)))
