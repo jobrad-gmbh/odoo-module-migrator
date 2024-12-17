@@ -278,5 +278,64 @@ def _determine_indentation(manifest_source: str) -> int:
     return element
 
 
+# Function to replace pattern in XML text or attributes
+def replace_pattern_in_xml(xml_file: str, pattern_to_match: str, replacement_text: str):
+    # Open and read the XML file
+    with open(xml_file, "r", encoding="UTF-8") as file:
+        xml_content = file.read()
+
+    # Use re.sub to replace the pattern in the XML content
+    modified_content = re.sub(pattern_to_match, replacement_text, xml_content)
+
+    # Write the modified content back to the same XML file
+    with open(xml_file, "w", encoding="UTF-8") as file:
+        file.write(modified_content)
+
+
+def search_directories(logger, module_path: str):
+    abs_path = os.path.abspath(module_path)
+    value_match_found = []
+    t_raw_match_found = []
+    t_esc_match_found = []
+    value_pattern_to_match = r"\${([^}|]+)(\| ?safe)?}"
+    value_replacement_text = r"{{ \1 }}"
+    t_raw = "t-raw"
+    t_esc = "t-esc"
+    t_out = "t-out"
+    file_type_to_match = "^.*\.(xml)$"
+    for root, dirs, files in os.walk(abs_path):
+        for file_name in files:
+            file_path = os.path.join(root, file_name)
+            if re.search(file_type_to_match, file_name):
+                xml_file = open(file_path, "r")
+                data = xml_file.read()
+                if data and re.search(value_pattern_to_match, data):
+                    value_match_found.append(file_path)
+                    replace_pattern_in_xml(file_path, value_pattern_to_match, value_replacement_text)
+                if data and re.search(t_raw, data):
+                    t_raw_match_found.append(file_path)
+                    replace_pattern_in_xml(file_path, t_raw, t_out)
+                if data and re.search(t_esc, data):
+                    t_esc_match_found.append(file_path)
+                    replace_pattern_in_xml(file_path, t_esc, t_out)
+    logger.debug("value match_found {0}".format(len(value_match_found)))
+    logger.debug("t-raw match_found {0}".format(len(t_raw_match_found)))
+    logger.debug("t-esc match_found {0}".format(len(t_esc_match_found)))
+    return value_match_found, t_raw_match_found, t_esc_match_found
+
+
+def reformat_email_template(logger, module_path, module_name, manifest_path, migration_steps, tools):
+    """Reformat email templates. jinja expression to qweb expression."""
+    logger.info("Starting email template reformating (Jinja to qweb expression) for ------  {0}!".format(module_name))
+    updated_files = {}
+    value_data, t_raw_data, t_esc_data = search_directories(logger, module_path)
+    updated_files.update({
+        "Value Expression Files": value_data,
+        "Raw Expression Files": t_raw_data,
+        "Esc Expression Files": t_esc_data
+    })
+    logger.debug("Ending email template reformating (Jinja to qweb expression) for ------- {0}!".format(module_name))
+    logger.debug("Result for {0}:\n{1}".format(module_name, updated_files))
+
 class MigrationScript(BaseMigrationScript):
-    _GLOBAL_FUNCTIONS = [reformat_assets_definition]
+    _GLOBAL_FUNCTIONS = [reformat_assets_definition, reformat_email_template]
