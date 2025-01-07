@@ -100,7 +100,7 @@ def reformat_assets_definition(
         with open(xml_file_path, "wt") as f:
             print(xml_source, file=f, end="")
 
-        if not tree.getchildren():
+        if not _has_regular_subnodes(tree):
             _remove_asset_file_from_manifest(data_list, file_path)
             os.remove(os.path.join(module_path, file_path))
 
@@ -169,11 +169,18 @@ def _remove_asset_file_from_manifest(data: list, file: str) -> None:
 def _remove_node_from_xml(record_node, node):
     """Remove a node from an XML tree."""
     to_remove = True
-    if node.getchildren():
+    if _has_regular_subnodes(node):
         to_remove = False
     if to_remove:
         parent = node.getparent() if node.getparent() is not None else record_node
         parent.remove(node)
+
+
+def _has_regular_subnodes(node) -> bool:
+    """Check if node has regular children, i.e. nodes that are not comments,
+    processing instructions, etc."""
+    regular_subnodes = [elem for elem in node.iter(tag=et.Element) if elem != node]
+    return len(regular_subnodes) != 0
 
 
 def _find_assets_inject_index(manifest_source: str) -> int:
