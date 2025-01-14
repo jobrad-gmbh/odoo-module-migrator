@@ -104,11 +104,18 @@ def reformat_assets_definition(
             _remove_asset_file_from_manifest(data_list, file_path)
             os.remove(os.path.join(module_path, file_path))
 
+    # move templates from "qweb" to "web.assets_qweb" inside "assets"
+    has_qweb_list: bool = "qweb" in manifest
+    if has_qweb_list:
+        assets_dict["web.assets_qweb"].extend(manifest["qweb"])
+
     # update the manifest
     if assets_dict:
         manifest_source = _inject_assets_dict(manifest_source, assets_dict, quote_char, indentation)
     if data_list_original and data_list != data_list_original:
         manifest_source = _replace_data_list(manifest_source, data_list, quote_char, indentation)
+    if has_qweb_list:
+        manifest_source = _remove_qweb_list(manifest_source)
 
     tools._write_content(manifest_path, manifest_source)
 
@@ -225,6 +232,30 @@ def _find_data_index_range(manifest_source: str) -> Tuple[int, int]:
     raise RuntimeError("Unable to find data list in the manifest.")
 
 
+def _find_qweb_index_range(manifest_source: str) -> Tuple[int, int]:
+    ast_tree: ast.Module = asttokens.ASTTokens(manifest_source, parse=True).tree
+
+    ast_dict_expr, = ast_tree.body
+    ast_dict_expr: ast.Expr
+
+    ast_dict: ast.Dict = ast_dict_expr.value
+    assert len(ast_dict.keys) == len(ast_dict.values)
+
+    previous_last_token: Token = ast_dict.first_token
+    for key, value in zip(ast_dict.keys, ast_dict.values):
+        key: ast.Constant
+        if key.value == "qweb":
+            first_token: Token = previous_last_token
+            last_token: Token = value.last_token
+            index_start: int = first_token.startpos + 1
+            index_end: int = last_token.endpos
+            return index_start, index_end
+
+        previous_last_token = value.last_token
+
+    raise RuntimeError("Unable to find qweb list in the manifest.")
+
+
 def _inject_assets_dict(manifest_source: str, assets: dict, quote_char: str, indentation: int) -> str:
     index = _find_assets_inject_index(manifest_source)
     assets_dict_str = _format_dict({"assets": assets}, quote_char, indentation)
@@ -243,6 +274,12 @@ def _replace_data_list(manifest_source: str, data: list, quote_char: str, indent
 
     manifest_source_new = manifest_source[:index_start] + data_list_str + manifest_source[index_end:]
 
+    return manifest_source_new
+
+
+def _remove_qweb_list(manifest_source) -> str:
+    index_start, index_end = _find_qweb_index_range(manifest_source)
+    manifest_source_new = manifest_source[:index_start] + manifest_source[index_end:]
     return manifest_source_new
 
 
