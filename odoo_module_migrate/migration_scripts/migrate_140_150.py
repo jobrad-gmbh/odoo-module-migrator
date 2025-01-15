@@ -111,6 +111,7 @@ def reformat_assets_definition(
 
     # update the manifest
     if assets_dict:
+        _ensure_asset_paths_start_with_module_name(assets_dict, module_name)
         manifest_source = _inject_assets_dict(manifest_source, assets_dict, quote_char, indentation)
     if data_list_original and data_list != data_list_original:
         manifest_source = _replace_data_list(manifest_source, data_list, quote_char, indentation)
@@ -166,6 +167,14 @@ def _serialize_xml_tree(tree: et.ElementTree, indent_spaces=2) -> str:
 def _add_asset_to_manifest(assets: dict, asset_type: str, asset_file: str) -> None:
     """Add an asset to a manifest file."""
     assets[asset_type].append(asset_file)
+
+
+def _ensure_asset_paths_start_with_module_name(assets: dict, module_name: str) -> None:
+    for asset_paths in assets.values():
+        for i, asset_path in enumerate(asset_paths):
+            root_path = f"/{module_name}"
+            if not asset_path.startswith(root_path) and not asset_path.startswith(module_name):
+                asset_paths[i] = os.path.join(root_path, asset_path)
 
 
 def _remove_asset_file_from_manifest(data: list, file: str) -> None:
