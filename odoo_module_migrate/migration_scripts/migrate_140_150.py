@@ -330,15 +330,36 @@ def _determine_indentation(manifest_source: str) -> int:
     (element, _), = Counter(indentations).most_common(1)
     return element
 
+def maintain_inner_expression(expression: str):
+    """
+    To keep the inner {} expression and replace only the outer jinja closing bracket
+    """
+    if '={' in expression:
+        before_split_value, after_split_value = expression.split('={')
+        after_split_value = '={' + after_split_value + '}}'
+
+        before_split_value = '{{ ' + before_split_value
+
+        return before_split_value + after_split_value
+    else:
+        return '{{' + expression + '}}'
 
 # Function to replace pattern in XML text or attributes
-def replace_pattern_in_xml(xml_file: str, pattern_to_match: str, replacement_text: str):
+def replace_pattern_in_xml(xml_file: str, pattern_to_match: str, replacement_text: str, jinja_to_qweb: bool =False):
     # Open and read the XML file
     with open(xml_file, "r", encoding="UTF-8") as file:
         xml_content = file.read()
 
     # Use re.sub to replace the pattern in the XML content
-    modified_content = re.sub(pattern_to_match, replacement_text, xml_content)
+    if jinja_to_qweb:
+        # Pattern to match expressions inside ${} and avoiding inner {} eg: context={}
+        modified_content = (
+            re.sub(pattern_to_match, lambda match: maintain_inner_expression(match.group(1)), xml_content))
+        # Remove escape parameter used '|safe', not required in 15.0
+        safe_pattern = r"(\s?\| ?safe)"
+        modified_content = re.sub(safe_pattern, '', modified_content)
+    else:
+        modified_content = re.sub(pattern_to_match, replacement_text, xml_content)
 
     # Write the modified content back to the same XML file
     with open(xml_file, "w", encoding="UTF-8") as file:
@@ -350,7 +371,7 @@ def search_directories(logger, module_path: str):
     value_match_found = []
     t_raw_match_found = []
     t_esc_match_found = []
-    value_pattern_to_match = r"\${([^}|]+)(\| ?safe)?}"
+    value_pattern_to_match = r"\${([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}"
     value_replacement_text = r"{{ \1 }}"
     t_raw = "t-raw"
     t_esc = "t-esc"
@@ -364,7 +385,7 @@ def search_directories(logger, module_path: str):
                 data = xml_file.read()
                 if data and re.search(value_pattern_to_match, data):
                     value_match_found.append(file_path)
-                    replace_pattern_in_xml(file_path, value_pattern_to_match, value_replacement_text)
+                    replace_pattern_in_xml(file_path, value_pattern_to_match, value_replacement_text, True)
                 if data and re.search(t_raw, data):
                     t_raw_match_found.append(file_path)
                     replace_pattern_in_xml(file_path, t_raw, t_out)
