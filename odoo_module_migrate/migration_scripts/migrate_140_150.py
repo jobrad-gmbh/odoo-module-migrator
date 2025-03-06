@@ -336,13 +336,13 @@ def maintain_inner_expression(expression: str):
     """
     if '={' in expression:
         before_split_value, after_split_value = expression.split('={')
-        after_split_value = '={' + after_split_value + '}}'
+        after_split_value = '={' + after_split_value + ' }}'
 
         before_split_value = '{{ ' + before_split_value
 
         return before_split_value + after_split_value
     else:
-        return '{{' + expression + '}}'
+        return '{{ ' + expression + ' }}'
 
 # Function to replace pattern in XML text or attributes
 def replace_pattern_in_xml(xml_file: str, pattern_to_match: str, replacement_text: str, jinja_to_qweb: bool =False):
