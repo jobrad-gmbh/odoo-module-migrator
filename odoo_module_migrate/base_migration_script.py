@@ -225,13 +225,22 @@ class BaseMigrationScript(object):
 
         warnings = self._TEXT_WARNINGS.get("*", {})
         warnings.update(self._TEXT_WARNINGS.get(extension, {}))
-        warnings.update(removed_fields.get("warnings"))
-        warnings.update(renamed_fields.get("warnings"))
         warnings.update(renamed_models.get("warnings"))
         warnings.update(removed_models.get("warnings"))
         for pattern, warning_message in warnings.items():
             if re.findall(pattern, new_text):
                 logger.warning(warning_message + ". File " + root + os.sep + filename)
+        model_warnings = {}
+        model_warnings.update(removed_fields.get("warnings"))
+        model_warnings.update(renamed_fields.get("warnings"))
+        for model_name in model_warnings.keys():
+            table_name = model_name.replace(".", "_")
+            if re.findall(model_name, new_text) or re.findall(table_name, new_text):
+                for pattern, warning_message in model_warnings[model_name].items():
+                    if re.findall(pattern, new_text):
+                        logger.warning(
+                            warning_message + ". File " + root + os.sep + filename
+                        )
 
     def handle_removed_fields(self, removed_fields):
         """Give warnings if field_name is found on the code. To minimize two
@@ -244,12 +253,14 @@ class BaseMigrationScript(object):
         """
         res = {}
         for model_name, field_name, more_info in removed_fields:
+            if model_name not in res:
+                res[model_name] = {}
             msg = "On the model %s, the field %s was deprecated.%s" % (
                 model_name,
                 field_name,
                 " %s" % more_info if more_info else "",
             )
-            res[r"""(['"]{0}['"]|\.{0}[\s,=])""".format(field_name)] = msg
+            res[model_name][r"""(['"]{0}['"]|\.{0}[\s,=])""".format(field_name)] = msg
         return {"warnings": res}
 
     def handle_renamed_fields(self, removed_fields):
@@ -263,13 +274,17 @@ class BaseMigrationScript(object):
         """
         res = {}
         for model_name, old_field_name, new_field_name, more_info in removed_fields:
+            if model_name not in res:
+                res[model_name] = {}
             msg = "On the model %s, the field %s was renamed to %s.%s" % (
                 model_name,
                 old_field_name,
                 new_field_name,
                 " %s" % more_info if more_info else "",
             )
-            res[r"""(['"]{0}['"]|\.{0}[\s,=])""".format(old_field_name)] = msg
+            res[model_name][
+                r"""(['"]{0}['"]|\.{0}[\s,=])""".format(old_field_name)
+            ] = msg
         return {"warnings": res}
 
     def handle_deprecated_modules(self, manifest_path, deprecated_modules):
@@ -387,11 +402,6 @@ class BaseMigrationScript(object):
                     "old_model_name", 'old_model_name': new_model_name
                     old_table_name["',]: new_table_name["',]
                 },
-            'warnings':
-                {
-                    old.model.name: warning msg
-                    old_model_name: warning msg
-                }
         }
         """
         res = {"replaces": {}, "warnings": {}, "errors": {}}
@@ -413,12 +423,6 @@ class BaseMigrationScript(object):
                     r"model_%s\"" % table_name: msg,
                     r"model_%s\'" % table_name: msg,
                     r"model_%s," % table_name: msg,
-                }
-            )
-            res["warnings"].update(
-                {
-                    model_name_esc: msg,
-                    table_name: msg,
                 }
             )
         return res
