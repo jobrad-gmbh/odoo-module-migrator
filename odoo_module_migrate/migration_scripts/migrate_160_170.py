@@ -290,15 +290,21 @@ def _reformat_read_group(
     logger.debug("Reformatted files:\n" f"{list(reformatted_files)}")
 
 
-def replace_pattern_in_xml(xml_file: str, pattern_to_match: str, replacement_text: str):
+def replace_pattern_in_xml(xml_file: str, pattern_to_match: str, replacement_text: str, result: []):
     with open(xml_file, "r") as file:
         xml_content = file.read()
+
+        if not xml_content or not re.search(pattern_to_match, xml_content):
+            pass
+
+    result.append(xml_file)
 
     modified_content = re.sub(pattern_to_match, replacement_text, xml_content)
 
     with open(xml_file, "w") as file:
         file.write(modified_content)
 
+    return result
 
 def search_directories(logger, module_path):
     abs_path = os.path.abspath(module_path)
@@ -310,16 +316,10 @@ def search_directories(logger, module_path):
         for file_name in files:
             if not file_name.endswith(".xml"):
                 continue
+
             file_path = os.path.join(root, file_name)
+            replace_pattern_in_xml(file_path, t_esc, t_out, t_esc_match_found)
 
-            with open(file_path, "r") as xml_file:
-                data = xml_file.read()
-
-            if data and re.search(t_esc, data):
-                t_esc_match_found.append(file_path)
-                replace_pattern_in_xml(file_path, t_esc, t_out)
-
-    logger.debug(f"t-esc match_found {len(t_esc_match_found)}")
     return t_esc_match_found
 
 
@@ -329,7 +329,7 @@ def replace_tesc_attribute_by_tout(
     logger.debug("Starting t-esc to t-out replacement for %s" % module_name)
     t_esc_data = search_directories(logger, module_path)
     for file_path in t_esc_data:
-        logger.info("Replaced t-esc by t-out in file %s" % file_path)
+        logger.info(f"Replaced t-esc by t-out in file {file_path}")
     logger.debug(
         f"Result for {module_name}:\n{{'Esc Expression Files': t_esc_data}}"
     )
