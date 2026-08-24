@@ -291,12 +291,12 @@ def _reformat_read_group(
 
 
 def replace_pattern_in_xml(xml_file: str, pattern_to_match: str, replacement_text: str):
-    with open(xml_file, "r", encoding="UTF-8") as file:
+    with open(xml_file, "r") as file:
         xml_content = file.read()
 
     modified_content = re.sub(pattern_to_match, replacement_text, xml_content)
 
-    with open(xml_file, "w", encoding="UTF-8") as file:
+    with open(xml_file, "w") as file:
         file.write(modified_content)
 
 
@@ -312,7 +312,7 @@ def search_directories(logger, module_path):
                 continue
             file_path = os.path.join(root, file_name)
 
-            with open(file_path, "r", encoding="UTF-8") as xml_file:
+            with open(file_path, "r") as xml_file:
                 data = xml_file.read()
 
             if data and re.search(t_esc, data):
