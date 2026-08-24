@@ -319,7 +319,7 @@ def search_directories(logger, module_path):
                 t_esc_match_found.append(file_path)
                 replace_pattern_in_xml(file_path, t_esc, t_out)
 
-    logger.debug("t-esc match_found {0}".format(len(t_esc_match_found)))
+    logger.debug(f"t-esc match_found {len(t_esc_match_found)}")
     return t_esc_match_found
 
 
@@ -331,7 +331,7 @@ def replace_tesc_attribute_by_tout(
     for file_path in t_esc_data:
         logger.info("Replaced t-esc by t-out in file %s" % file_path)
     logger.debug(
-        "Result for {0}:\n{1}".format(module_name, {"Esc Expression Files": t_esc_data})
+        f"Result for {module_name}:\n{{'Esc Expression Files': t_esc_data}}"
     )
 
 
