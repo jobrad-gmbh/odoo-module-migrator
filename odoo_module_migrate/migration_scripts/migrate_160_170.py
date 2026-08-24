@@ -323,7 +323,7 @@ def search_directories(logger, module_path):
     return t_esc_match_found
 
 
-def replace_tesc_attribute_by_tout(
+def _replace_tesc_attribute_by_tout(
     logger, module_path, module_name, manifest_path, migration_steps, tools
 ):
     logger.debug("Starting t-esc to t-out replacement for %s" % module_name)
@@ -340,5 +340,5 @@ class MigrationScript(BaseMigrationScript):
     _GLOBAL_FUNCTIONS = [
         _check_open_form,
         _reformat_read_group,
-        replace_tesc_attribute_by_tout,
+        _replace_tesc_attribute_by_tout,
     ]
