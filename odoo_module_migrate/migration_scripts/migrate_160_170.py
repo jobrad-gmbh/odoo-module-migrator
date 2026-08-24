@@ -306,7 +306,7 @@ def replace_pattern_in_xml(xml_file: str, pattern_to_match: str, replacement_tex
 
     return result
 
-def search_directories(logger, module_path):
+def search_directories(module_path: str) -> list[str]:
     abs_path = os.path.abspath(module_path)
     t_esc_match_found = []
     t_esc = r"t-esc(?![-\w])"
@@ -327,7 +327,7 @@ def _replace_tesc_attribute_by_tout(
     logger, module_path, module_name, manifest_path, migration_steps, tools
 ):
     logger.debug("Starting t-esc to t-out replacement for %s" % module_name)
-    t_esc_data = search_directories(logger, module_path)
+    t_esc_data = search_directories(module_path)
     for file_path in t_esc_data:
         logger.info(f"Replaced t-esc by t-out in file {file_path}")
     logger.debug(
