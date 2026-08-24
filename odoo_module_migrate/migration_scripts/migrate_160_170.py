@@ -4,7 +4,6 @@ from odoo_module_migrate.base_migration_script import BaseMigrationScript
 import lxml.etree as et
 from pathlib import Path
 import sys
-import os
 import re
 import ast
 from typing import Any
@@ -307,18 +306,14 @@ def replace_pattern_in_xml(xml_file: str, pattern_to_match: str, replacement_tex
     return result
 
 def search_directories(module_path: str) -> list[str]:
-    abs_path = os.path.abspath(module_path)
     t_esc_match_found = []
     t_esc = r"t-esc(?![-\w])"
     t_out = "t-out"
 
-    for root, __, files in os.walk(abs_path):
-        for file_name in files:
-            if not file_name.endswith(".xml"):
-                continue
+    files = _get_files(module_path, ".xml")
 
-            file_path = os.path.join(root, file_name)
-            replace_pattern_in_xml(file_path, t_esc, t_out, t_esc_match_found)
+    for file_path in files:
+        replace_pattern_in_xml(str(file_path), t_esc, t_out, t_esc_match_found)
 
     return t_esc_match_found
 
