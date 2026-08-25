@@ -324,9 +324,14 @@ def search_directories(module_path: str) -> list[str]:
 
 
 def _replace_tesc_attribute_by_tout(
-    logger: logging.Logger, module_path: Path, module_name: str, manifest_path: Path, migration_steps, tools
+    logger: logging.Logger,
+    module_path: Path,
+    module_name: str,
+    manifest_path: Path,
+    migration_steps,
+    tools,
 ):
-    logger.debug("Starting t-esc to t-out replacement for %s" % module_name)
+    logger.debug(f"Starting t-esc to t-out replacement for {module_name}")
     t_esc_data = search_directories(module_path)
     for file_path in t_esc_data:
         logger.info(f"Replaced t-esc by t-out in file {file_path}")
