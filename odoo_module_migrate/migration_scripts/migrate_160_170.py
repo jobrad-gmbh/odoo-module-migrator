@@ -8,6 +8,8 @@ import sys
 import re
 import ast
 from typing import Any
+import pprint
+import json
 
 empty_list = ast.parse("[]").body[0].value
 
@@ -348,7 +350,30 @@ def _move_assets_from_qweb_to_backend(
     migration_steps,
     tools,
 ):
-    pass
+    files = _get_files(module_path, ".py")
+    manifest_files = filter(lambda file_name: "__manifest__.py" in str(file_name), files)
+
+    for file in list(manifest_files):
+        with open(file, "r") as manifest:
+            manifest_content = manifest.read()
+            manifest_dict = ast.literal_eval(manifest_content)
+
+            assets = manifest_dict.get("assets")
+
+            if not assets or "web.assets_qweb" not in assets:
+                continue
+
+            logger.info(f"Moving assets from web.assets_qwen into web.assets_backend for {module_name}")
+
+            qweb_items = assets.pop("web.assets_qweb")
+            backend_items = assets.setdefault("web.assets_backend", [])
+
+            backend_items.extend(item for item in qweb_items if item not in backend_items)
+
+            new_content = json.dumps(manifest_dict, indent=4)
+
+            with open(manifest_path, "w") as f:
+                f.write(new_content)
 
 
 class MigrationScript(BaseMigrationScript):
