@@ -4,11 +4,9 @@ from odoo_module_migrate.base_migration_script import BaseMigrationScript
 import lxml.etree as et
 from pathlib import Path
 import logging
-import sys
 import re
 import ast
 from typing import Any
-import pprint
 import json
 
 empty_list = ast.parse("[]").body[0].value
