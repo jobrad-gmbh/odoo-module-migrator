@@ -340,10 +340,22 @@ def _replace_tesc_attribute_by_tout(
     logger.debug(f"Result for {module_name}:\n{{'Esc Expression Files': t_esc_data}}")
 
 
+def _move_assets_from_qweb_to_backend(
+    logger: logging.Logger,
+    module_path: Path,
+    module_name: str,
+    manifest_path: Path,
+    migration_steps,
+    tools,
+):
+    pass
+
+
 class MigrationScript(BaseMigrationScript):
 
     _GLOBAL_FUNCTIONS = [
         _check_open_form,
+        _move_assets_from_qweb_to_backend,
         _reformat_read_group,
         _replace_tesc_attribute_by_tout,
     ]
