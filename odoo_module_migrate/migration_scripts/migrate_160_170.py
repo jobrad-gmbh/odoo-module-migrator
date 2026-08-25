@@ -3,8 +3,9 @@
 from odoo_module_migrate.base_migration_script import BaseMigrationScript
 import lxml.etree as et
 from pathlib import Path
+import logging
 import sys
-import os
+import re
 import ast
 from typing import Any
 
@@ -289,6 +290,60 @@ def _reformat_read_group(
     logger.debug("Reformatted files:\n" f"{list(reformatted_files)}")
 
 
+def replace_pattern_in_xml(
+    xml_file: str, pattern_to_match: str, replacement_text: str
+) -> bool:
+    with open(xml_file, "r") as file:
+        xml_content = file.read()
+
+        if not xml_content or not re.search(pattern_to_match, xml_content):
+            return False
+
+    modified_content = re.sub(pattern_to_match, replacement_text, xml_content)
+
+    with open(xml_file, "w") as file:
+        file.write(modified_content)
+
+    return True
+
+
+def modify_files_with_tesc(module_path: str) -> list[str]:
+    t_esc_match_found = []
+    t_esc = r"t-esc(?![-\w])"
+    t_out = "t-out"
+
+    files = _get_files(module_path, ".xml")
+
+    for file_path in files:
+        is_t_esc_replaced = replace_pattern_in_xml(str(file_path), t_esc, t_out)
+
+        if is_t_esc_replaced:
+            t_esc_match_found.append(str(file_path))
+
+    return t_esc_match_found
+
+
+def _replace_tesc_attribute_by_tout(
+    logger: logging.Logger,
+    module_path: Path,
+    module_name: str,
+    manifest_path: Path,
+    migration_steps,
+    tools,
+):
+    logger.debug(f"Starting t-esc to t-out replacement for {module_name}")
+    t_esc_data = modify_files_with_tesc(module_path)
+
+    for file_path in t_esc_data:
+        logger.info(f"Replaced t-esc by t-out in file {file_path}")
+
+    logger.debug(f"Result for {module_name}:\n{{'Esc Expression Files': t_esc_data}}")
+
+
 class MigrationScript(BaseMigrationScript):
 
-    _GLOBAL_FUNCTIONS = [_check_open_form, _reformat_read_group]
+    _GLOBAL_FUNCTIONS = [
+        _check_open_form,
+        _reformat_read_group,
+        _replace_tesc_attribute_by_tout,
+    ]
