@@ -290,7 +290,7 @@ def _reformat_read_group(
 
 
 def replace_pattern_in_xml(
-        xml_file: str, pattern_to_match: str, replacement_text: str
+    xml_file: str, pattern_to_match: str, replacement_text: str
 ) -> bool:
     with open(xml_file, "r") as file:
         xml_content = file.read()
