@@ -289,7 +289,9 @@ def _reformat_read_group(
     logger.debug("Reformatted files:\n" f"{list(reformatted_files)}")
 
 
-def replace_pattern_in_xml(xml_file: str, pattern_to_match: str, replacement_text: str, result: []):
+def replace_pattern_in_xml(
+        xml_file: str, pattern_to_match: str, replacement_text: str, result: list[str]
+):
     with open(xml_file, "r") as file:
         xml_content = file.read()
 
@@ -304,6 +306,7 @@ def replace_pattern_in_xml(xml_file: str, pattern_to_match: str, replacement_tex
         file.write(modified_content)
 
     return result
+
 
 def search_directories(module_path: str) -> list[str]:
     t_esc_match_found = []
@@ -325,9 +328,7 @@ def _replace_tesc_attribute_by_tout(
     t_esc_data = search_directories(module_path)
     for file_path in t_esc_data:
         logger.info(f"Replaced t-esc by t-out in file {file_path}")
-    logger.debug(
-        f"Result for {module_name}:\n{{'Esc Expression Files': t_esc_data}}"
-    )
+    logger.debug(f"Result for {module_name}:\n{{'Esc Expression Files': t_esc_data}}")
 
 
 class MigrationScript(BaseMigrationScript):
