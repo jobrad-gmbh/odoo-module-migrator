@@ -483,14 +483,14 @@ def _move_assets_from_qweb_to_backend(
         return
 
     manifest_content = tools._read_content(manifest_path)
-    new_manifest_content = _merge_qweb_backend_bundle(logger, manifest_content, module_name)
+    modified_manifest_content = _merge_qweb_backend_bundle(logger, manifest_content, module_name)
 
-    if new_manifest_content != manifest_content:
+    if modified_manifest_content != manifest_content:
         logger.info(
             f"Moving the assets of {QWEB_BUNDLE} into {BACKEND_BUNDLE}"
             f" for {module_name}"
         )
-        tools._write_content(manifest_path, new_manifest_content)
+        tools._write_content(manifest_path, modified_manifest_content)
 
 
 class MigrationScript(BaseMigrationScript):
