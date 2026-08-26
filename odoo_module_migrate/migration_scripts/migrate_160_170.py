@@ -409,7 +409,7 @@ def _merge_bundles(
     if not qweb.items:
         return []
 
-    # qweb assets do exist, but backend doesnt
+    # if backend has no items, items from qweb content just will be reindented and moved into backend
     if not backend.items:
         start, end = positions.span(backend.value)
         moved_items = positions.reindent_segment(
@@ -419,6 +419,8 @@ def _merge_bundles(
         return [_Replacement(start, end, moved_items)]
 
     known_items = {ast.dump(node) for node in backend.items}
+
+    # Only merge items that do not exist yet in backend bundle
     new_items = [node for node in qweb.items if ast.dump(node) not in known_items]
 
     if not new_items:
@@ -453,6 +455,7 @@ def _merge_qweb_backend_bundle(
     qweb, backend = bundles
     positions = ast_tools.SourcePositions(manifest_content)
 
+    # Rename qweb bundle as backend due to the inexistence of backend bundle
     if not backend.exists:
         return _apply_replacements(manifest_content, [_rename_bundle(positions, qweb)])
 
@@ -463,6 +466,7 @@ def _merge_qweb_backend_bundle(
 
         return manifest_content
 
+    # qweb bundle will be replaced by empty string first and then will be merge into backend bundle
     replacements = [
         _Replacement(*positions.entry_removal_span(qweb.key, qweb.value), ""),
         *_merge_bundles(positions, qweb, backend),
