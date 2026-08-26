@@ -373,18 +373,18 @@ class _Replacement(NamedTuple):
 
 def _get_assets_bundles(manifest_content: str) -> tuple[_Bundle, _Bundle] | None:
     """Return the (qweb, backend) bundles, or None if there is nothing to move."""
-    manifest_node = ast_tools._get_dict_node(manifest_content)
+    manifest_node = ast_tools.get_dict_node(manifest_content)
 
     if manifest_node is None:
         return None
 
-    __, assets_node = ast_tools._get_dict_entry(manifest_node, "assets")
+    __, assets_node = ast_tools.get_dict_entry(manifest_node, "assets")
 
     if not isinstance(assets_node, ast.Dict):
         return None
 
-    qweb_bundle = _Bundle(*ast_tools._get_dict_entry(assets_node, QWEB_BUNDLE))
-    backend_bundle = _Bundle(*ast_tools._get_dict_entry(assets_node, BACKEND_BUNDLE))
+    qweb_bundle = _Bundle(*ast_tools.get_dict_entry(assets_node, QWEB_BUNDLE))
+    backend_bundle = _Bundle(*ast_tools.get_dict_entry(assets_node, BACKEND_BUNDLE))
 
     if not qweb_bundle.exists:
         return None
@@ -475,7 +475,7 @@ def _merge_qweb_backend_bundle(
     return _apply_replacements(manifest_content, replacements)
 
 
-def _move_assets_from_qweb_to_backend(
+def _migrate_qweb_assets(
     logger: logging.Logger,
     module_path: Path,
     module_name: str,
@@ -503,7 +503,7 @@ class MigrationScript(BaseMigrationScript):
 
     _GLOBAL_FUNCTIONS = [
         _check_open_form,
-        _move_assets_from_qweb_to_backend,
+        _migrate_qweb_assets,
         _reformat_read_group,
         _replace_tesc_attribute_by_tout,
     ]

@@ -12,7 +12,7 @@ Span = tuple[int, int]
 SPACE_OR_TAB_STRING = " \t"
 
 
-def _get_dict_entry(node: ast.Dict, key: str) -> tuple[ast.AST | None, ast.AST | None]:
+def get_dict_entry(node: ast.Dict, key: str) -> tuple[ast.AST | None, ast.AST | None]:
     """Return the (key node, value node) of `key` in a dict literal, or (None, None)."""
     for key_node, value_node in zip(node.keys, node.values):
         if isinstance(key_node, ast.Constant) and key_node.value == key:
@@ -21,7 +21,7 @@ def _get_dict_entry(node: ast.Dict, key: str) -> tuple[ast.AST | None, ast.AST |
     return None, None
 
 
-def _get_dict_node(content: str) -> ast.Dict | None:
+def get_dict_node(content: str) -> ast.Dict | None:
     """Return the first dict literal written as a statement of `content`, if any."""
     for node in ast.parse(content).body:
         if isinstance(node, ast.Expr) and isinstance(node.value, ast.Dict):
