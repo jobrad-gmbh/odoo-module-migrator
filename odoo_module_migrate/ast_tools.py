@@ -43,12 +43,10 @@ class SourcePositions:
             self._line_starts.append(offset)
             offset += len(line) + 1
 
-
     def get_line_offset(self, lineno: int, col_offset: int) -> int:
         line = self._lines[lineno - 1]
 
         return self._line_starts[lineno - 1] + len(line.encode()[:col_offset].decode())
-
 
     def span(self, node: ast.AST) -> Span:
         return (
@@ -56,18 +54,15 @@ class SourcePositions:
             self.get_line_offset(node.end_lineno, node.end_col_offset),
         )
 
-
     def get_node_segment(self, node: ast.AST) -> str:
         start, end = self.span(node)
 
         return self.content[start:end]
 
-
     def indent(self, node: ast.AST) -> str:
         line = self._lines[node.lineno - 1]
 
         return line[: len(line) - len(line.lstrip())]
-
 
     def entry_removal_span(self, key_node: ast.AST, value_node: ast.AST) -> Span:
         """Span of a dict entry, trailing comma included, and whole line if it has one
@@ -91,7 +86,6 @@ class SourcePositions:
         # The entry (and an eventual comment of its own) is alone on its line
         return line_start, line_end + 1
 
-
     def insert_items(
         self, target_node: ast.List, item_nodes: list[ast.AST]
     ) -> tuple[int, str]:
@@ -103,22 +97,25 @@ class SourcePositions:
         indent = self.indent(last_item)
         separator = f",\n{indent}" if self._is_multiline(target_node) else ", "
         text = "".join(
-            separator + self._reindent(self.get_node_segment(node), self.indent(node), indent)
+            separator
+            + self._reindent(self.get_node_segment(node), self.indent(node), indent)
             for node in item_nodes
         )
 
         return self.span(last_item)[1], text
 
     def reindent_segment(self, node: ast.AST, new_indent: str) -> str:
-        return self._reindent(self.get_node_segment(node), self.indent(node), new_indent)
-
+        return self._reindent(
+            self.get_node_segment(node), self.indent(node), new_indent
+        )
 
     def _after_spaces(self, offset: int) -> int:
-        while offset < len(self.content) and self.content[offset] in SPACE_OR_TAB_STRING:
+        while (
+            offset < len(self.content) and self.content[offset] in SPACE_OR_TAB_STRING
+        ):
             offset += 1
 
         return offset
-
 
     def _after_trailing_comma(self, offset: int) -> int:
         comma = self._after_spaces(offset)
@@ -128,21 +125,17 @@ class SourcePositions:
 
         return offset
 
-
     def _line_start(self, offset: int) -> int:
         return self.content.rfind("\n", 0, offset) + 1
-
 
     def _line_end(self, offset: int) -> int:
         line_end = self.content.find("\n", offset)
 
         return len(self.content) if line_end == -1 else line_end
 
-
     @staticmethod
     def _is_multiline(node: ast.AST) -> bool:
         return node.lineno != node.end_lineno
-
 
     @staticmethod
     def _reindent(segment: str, old_indent: str, new_indent: str) -> str:

@@ -392,12 +392,12 @@ def _get_assets_bundles(manifest_content: str) -> tuple[_Bundle, _Bundle] | None
     return qweb_bundle, backend_bundle
 
 
-def _rename_bundle_edit(
-    positions: ast_tools.SourcePositions, qweb: _Bundle
-) -> _Edit:
+def _rename_bundle_edit(positions: ast_tools.SourcePositions, qweb: _Bundle) -> _Edit:
     """Edit renaming the qweb bundle, used when there is no backend bundle yet."""
     start, end = positions.span(qweb.key)
-    renamed_key = positions.get_node_segment(qweb.key).replace(QWEB_BUNDLE, BACKEND_BUNDLE)
+    renamed_key = positions.get_node_segment(qweb.key).replace(
+        QWEB_BUNDLE, BACKEND_BUNDLE
+    )
 
     return _Edit(start, end, renamed_key)
 
@@ -458,9 +458,9 @@ def _merge_qweb_backend_bundle(
 
     if not qweb.is_list or not backend.is_list:
         logger.warning(
-            "%s: %s and/or %s is not defined as a list, the assets have to be moved"
-            " manually." % (module_name, QWEB_BUNDLE, BACKEND_BUNDLE)
+            f"{module_name}: {QWEB_BUNDLE} and/or {BACKEND_BUNDLE} is not defined as a list, the assets have to be moved manually."
         )
+
         return manifest_content
 
     edits = [
@@ -483,7 +483,9 @@ def _move_assets_from_qweb_to_backend(
         return
 
     manifest_content = tools._read_content(manifest_path)
-    modified_manifest_content = _merge_qweb_backend_bundle(logger, manifest_content, module_name)
+    modified_manifest_content = _merge_qweb_backend_bundle(
+        logger, manifest_content, module_name
+    )
 
     if modified_manifest_content != manifest_content:
         logger.info(
