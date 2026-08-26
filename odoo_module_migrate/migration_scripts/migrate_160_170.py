@@ -397,7 +397,7 @@ def _rename_bundle_edit(
 ) -> _Edit:
     """Edit renaming the qweb bundle, used when there is no backend bundle yet."""
     start, end = positions.span(qweb.key)
-    renamed_key = positions.segment(qweb.key).replace(QWEB_BUNDLE, BACKEND_BUNDLE)
+    renamed_key = positions.get_node_segment(qweb.key).replace(QWEB_BUNDLE, BACKEND_BUNDLE)
 
     return _Edit(start, end, renamed_key)
 
@@ -412,7 +412,7 @@ def _merge_items_edits(
     if not backend.items:
         # Nothing to merge with, reuse the items as they are written
         start, end = positions.span(backend.value)
-        moved_items = positions.reindented_segment(
+        moved_items = positions.reindent_segment(
             qweb.value, positions.indent(backend.value)
         )
 
@@ -424,7 +424,7 @@ def _merge_items_edits(
     if not new_items:
         return []
 
-    offset, text = positions.items_insertion(backend.value, new_items)
+    offset, text = positions.insert_items(backend.value, new_items)
 
     return [_Edit(offset, offset, text)]
 
