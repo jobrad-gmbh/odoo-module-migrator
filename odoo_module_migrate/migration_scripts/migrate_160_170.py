@@ -363,7 +363,7 @@ class _Bundle(NamedTuple):
         return isinstance(self.value, ast.List)
 
 
-class _Edit(NamedTuple):
+class _Replacement(NamedTuple):
     """A replacement of the `[start:end]` slice of the manifest source."""
 
     start: int
@@ -392,31 +392,31 @@ def _get_assets_bundles(manifest_content: str) -> tuple[_Bundle, _Bundle] | None
     return qweb_bundle, backend_bundle
 
 
-def _rename_bundle_edit(positions: ast_tools.SourcePositions, qweb: _Bundle) -> _Edit:
-    """Edit renaming the qweb bundle, used when there is no backend bundle yet."""
+def _rename_bundle(positions: ast_tools.SourcePositions, qweb: _Bundle) -> _Replacement:
+    """Rename the qweb bundle, used when there is no backend bundle yet."""
     start, end = positions.span(qweb.key)
     renamed_key = positions.get_node_segment(qweb.key).replace(
         QWEB_BUNDLE, BACKEND_BUNDLE
     )
 
-    return _Edit(start, end, renamed_key)
+    return _Replacement(start, end, renamed_key)
 
 
-def _merge_items_edits(
+def _merge_bundles(
     positions: ast_tools.SourcePositions, qweb: _Bundle, backend: _Bundle
-) -> list[_Edit]:
-    """Edits adding the qweb items missing from the backend bundle."""
+) -> list[_Replacement]:
+    # Nothing to merge
     if not qweb.items:
         return []
 
+    # qweb assets do exist, but backend doesnt
     if not backend.items:
-        # Nothing to merge with, reuse the items as they are written
         start, end = positions.span(backend.value)
         moved_items = positions.reindent_segment(
             qweb.value, positions.indent(backend.value)
         )
 
-        return [_Edit(start, end, moved_items)]
+        return [_Replacement(start, end, moved_items)]
 
     known_items = {ast.dump(node) for node in backend.items}
     new_items = [node for node in qweb.items if ast.dump(node) not in known_items]
@@ -426,12 +426,12 @@ def _merge_items_edits(
 
     offset, text = positions.insert_items(backend.value, new_items)
 
-    return [_Edit(offset, offset, text)]
+    return [_Replacement(offset, offset, text)]
 
 
-def _apply_edits(content: str, edits: list[_Edit]) -> str:
-    """Apply the edits from the last one to the first one, to keep offsets valid."""
-    for start, end, replacement in sorted(edits, reverse=True):
+def _apply_replacements(content: str, replacements: list[_Replacement]) -> str:
+    """Apply the replacements from the last one to the first one, to keep offsets valid."""
+    for start, end, replacement in sorted(replacements, reverse=True):
         content = content[:start] + replacement + content[end:]
 
     return content
@@ -454,7 +454,7 @@ def _merge_qweb_backend_bundle(
     positions = ast_tools.SourcePositions(manifest_content)
 
     if not backend.exists:
-        return _apply_edits(manifest_content, [_rename_bundle_edit(positions, qweb)])
+        return _apply_replacements(manifest_content, [_rename_bundle(positions, qweb)])
 
     if not qweb.is_list or not backend.is_list:
         logger.warning(
@@ -463,12 +463,12 @@ def _merge_qweb_backend_bundle(
 
         return manifest_content
 
-    edits = [
-        _Edit(*positions.entry_removal_span(qweb.key, qweb.value), ""),
-        *_merge_items_edits(positions, qweb, backend),
+    replacements = [
+        _Replacement(*positions.entry_removal_span(qweb.key, qweb.value), ""),
+        *_merge_bundles(positions, qweb, backend),
     ]
 
-    return _apply_edits(manifest_content, edits)
+    return _apply_replacements(manifest_content, replacements)
 
 
 def _move_assets_from_qweb_to_backend(
