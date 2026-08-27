@@ -67,23 +67,41 @@ class SourcePositions:
     def entry_removal_span(self, key_node: ast.AST, value_node: ast.AST) -> Span:
         """Span of a dict entry, trailing comma included, and whole line if it has one
         for itself."""
-        start = self.span(key_node)[0]
-        end = self._after_trailing_comma(self.span(value_node)[1])
-        line_start = self._line_start(start)
+        key_node_start = self.span(key_node)[0]
+        value_node_end = self.span(value_node)[1]
+        value_node_end_with_trailing_comma = self._after_trailing_comma(value_node_end)
 
-        if self.content[line_start:start].strip():
+        line_start = self._line_start(key_node_start)
+
+        '''
+        Case 1:
+        is_something_before_key_node = True
+        {"a": 1, "b": 2, "c": 3} and trying to remove "b" node
+        '''
+        is_something_before_key_node = self.content[line_start:key_node_start].strip()
+
+        if is_something_before_key_node:
             # Something else shares the beginning of the line, only drop the spaces
             # trailing the entry
-            return start, self._after_spaces(end)
+            return key_node_start, self._after_spaces(value_node_end_with_trailing_comma)
 
-        line_end = self._line_end(end)
-        remainder = self.content[end:line_end].strip()
+        '''
+        Case 2: the entry to remove starts its own line, but another entry
+        follows it on the same line — only the removed entry's own text should
+        be deleted; e.g: "b" must be deleted, but "c" must be preserved untouched.
+        {
+            "a": 1,
+            "b": 2, "c": 3,
+        }
+        '''
+        line_end = self._line_end(offset = value_node_end_with_trailing_comma)
+        is_something_after_value_node_end = self.content[value_node_end_with_trailing_comma:line_end].strip()
 
-        if remainder and not remainder.startswith("#"):
+        if is_something_after_value_node_end and not is_something_after_value_node_end.startswith("#"):
             # Another entry follows on the same line, leave the line itself alone
-            return start, end
+            return key_node_start, value_node_end_with_trailing_comma
 
-        # The entry (and an eventual comment of its own) is alone on its line
+        # The entry is alone on its line
         return line_start, line_end + 1
 
     def insert_items(
