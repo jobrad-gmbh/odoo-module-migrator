@@ -466,10 +466,9 @@ def _merge_qweb_backend_bundle(
 
         return manifest_content
 
-    # qweb bundle will be replaced by empty string first and then will be merge into backend bundle
     replacements = [
-        Replacement(*positions.entry_removal_span(qweb.key, qweb.value), ""),
-        *_prepare_merge_bundles(positions, qweb, backend),
+        Replacement(*positions.entry_removal_span(qweb.key, qweb.value), ""), # prepare replacement object to remove QWEB_BUNDLE completely from manifest
+        *_prepare_merge_bundles(positions, qweb, backend), # prepare replacement object to merge items of QWEB_BUNDLE with BACKEND_BUNDLE
     ]
 
     return _apply_replacements(manifest_content, replacements)
