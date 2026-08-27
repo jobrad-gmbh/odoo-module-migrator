@@ -344,7 +344,7 @@ QWEB_BUNDLE = "web.assets_qweb"
 BACKEND_BUNDLE = "web.assets_backend"
 
 
-class _Bundle(NamedTuple):
+class Bundle(NamedTuple):
     """An `assets` entry of a manifest, its nodes being None when it is absent."""
 
     key: ast.AST | None
@@ -363,7 +363,7 @@ class _Bundle(NamedTuple):
         return isinstance(self.value, ast.List)
 
 
-class _Replacement(NamedTuple):
+class Replacement(NamedTuple):
     """A replacement of the `[start:end]` slice of the manifest source."""
 
     start: int
@@ -371,7 +371,7 @@ class _Replacement(NamedTuple):
     replacement: str
 
 
-def _get_assets_bundles(manifest_content: str) -> tuple[_Bundle, _Bundle] | None:
+def _get_assets_bundles(manifest_content: str) -> tuple[Bundle, Bundle] | None:
     """Return the (qweb, backend) bundles, or None if there is nothing to move."""
     manifest_node = ast_tools.get_dict_node(manifest_content)
 
@@ -383,8 +383,8 @@ def _get_assets_bundles(manifest_content: str) -> tuple[_Bundle, _Bundle] | None
     if not isinstance(assets_node, ast.Dict):
         return None
 
-    qweb_bundle = _Bundle(*ast_tools.get_dict_entry(assets_node, QWEB_BUNDLE))
-    backend_bundle = _Bundle(*ast_tools.get_dict_entry(assets_node, BACKEND_BUNDLE))
+    qweb_bundle = Bundle(*ast_tools.get_dict_entry(assets_node, QWEB_BUNDLE))
+    backend_bundle = Bundle(*ast_tools.get_dict_entry(assets_node, BACKEND_BUNDLE))
 
     if not qweb_bundle.exists:
         return None
@@ -392,19 +392,19 @@ def _get_assets_bundles(manifest_content: str) -> tuple[_Bundle, _Bundle] | None
     return qweb_bundle, backend_bundle
 
 
-def _rename_bundle(positions: ast_tools.SourcePositions, qweb: _Bundle) -> _Replacement:
+def _rename_bundle(positions: ast_tools.SourcePositions, qweb: Bundle) -> Replacement:
     """Rename the qweb bundle, used when there is no backend bundle yet."""
     start, end = positions.span(qweb.key)
     renamed_key = positions.get_node_segment(qweb.key).replace(
         QWEB_BUNDLE, BACKEND_BUNDLE
     )
 
-    return _Replacement(start, end, renamed_key)
+    return Replacement(start, end, renamed_key)
 
 
 def _merge_bundles(
-    positions: ast_tools.SourcePositions, qweb: _Bundle, backend: _Bundle
-) -> list[_Replacement]:
+    positions: ast_tools.SourcePositions, qweb: Bundle, backend: Bundle
+) -> list[Replacement]:
     # Nothing to merge
     if not qweb.items:
         return []
@@ -416,7 +416,7 @@ def _merge_bundles(
             qweb.value, positions.indent(backend.value)
         )
 
-        return [_Replacement(start, end, moved_items)]
+        return [Replacement(start, end, moved_items)]
 
     known_items = {ast.dump(node) for node in backend.items}
 
@@ -428,10 +428,10 @@ def _merge_bundles(
 
     offset, text = positions.insert_items(backend.value, new_items)
 
-    return [_Replacement(offset, offset, text)]
+    return [Replacement(offset, offset, text)]
 
 
-def _apply_replacements(content: str, replacements: list[_Replacement]) -> str:
+def _apply_replacements(content: str, replacements: list[Replacement]) -> str:
     """Apply the replacements from the last one to the first one, to keep offsets valid."""
     for start, end, replacement in sorted(replacements, reverse=True):
         content = content[:start] + replacement + content[end:]
@@ -468,7 +468,7 @@ def _merge_qweb_backend_bundle(
 
     # qweb bundle will be replaced by empty string first and then will be merge into backend bundle
     replacements = [
-        _Replacement(*positions.entry_removal_span(qweb.key, qweb.value), ""),
+        Replacement(*positions.entry_removal_span(qweb.key, qweb.value), ""),
         *_merge_bundles(positions, qweb, backend),
     ]
 
