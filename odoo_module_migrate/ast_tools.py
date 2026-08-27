@@ -69,23 +69,27 @@ class SourcePositions:
         for itself."""
         key_node_start = self.span(key_node)[0]
         value_node_end = self.span(value_node)[1]
-        value_node_end_with_trailing_comma = self._after_trailing_comma(value_node_end)
+        value_node_end_with_trailing_comma = self._after_trailing_comma(
+            offset=value_node_end
+        )
 
-        line_start = self._line_start(key_node_start)
+        line_start = self._line_start(offset=key_node_start)
 
-        '''
+        """
         Case 1:
         is_something_before_key_node = True
         {"a": 1, "b": 2, "c": 3} and trying to remove "b" node
-        '''
+        """
         is_something_before_key_node = self.content[line_start:key_node_start].strip()
 
         if is_something_before_key_node:
             # Something else shares the beginning of the line, only drop the spaces
             # trailing the entry
-            return key_node_start, self._after_spaces(value_node_end_with_trailing_comma)
+            return key_node_start, self._after_spaces(
+                offset=value_node_end_with_trailing_comma
+            )
 
-        '''
+        """
         Case 2: the entry to remove starts its own line, but another entry
         follows it on the same line — only the removed entry's own text should
         be deleted; e.g: "b" must be deleted, but "c" must be preserved untouched.
@@ -93,11 +97,16 @@ class SourcePositions:
             "a": 1,
             "b": 2, "c": 3,
         }
-        '''
-        line_end = self._line_end(offset = value_node_end_with_trailing_comma)
-        is_something_after_value_node_end = self.content[value_node_end_with_trailing_comma:line_end].strip()
+        """
+        line_end = self._line_end(offset=value_node_end_with_trailing_comma)
+        is_something_after_value_node_end = self.content[
+            value_node_end_with_trailing_comma:line_end
+        ].strip()
 
-        if is_something_after_value_node_end and not is_something_after_value_node_end.startswith("#"):
+        if (
+            is_something_after_value_node_end
+            and not is_something_after_value_node_end.startswith("#")
+        ):
             # Another entry follows on the same line, leave the line itself alone
             return key_node_start, value_node_end_with_trailing_comma
 
