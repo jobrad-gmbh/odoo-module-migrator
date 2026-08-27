@@ -402,7 +402,7 @@ def _rename_bundle(positions: ast_tools.SourcePositions, qweb: Bundle) -> Replac
     return Replacement(start, end, renamed_key)
 
 
-def _merge_bundles(
+def _prepare_merge_bundles(
     positions: ast_tools.SourcePositions, qweb: Bundle, backend: Bundle
 ) -> list[Replacement]:
     # Nothing to merge
@@ -469,7 +469,7 @@ def _merge_qweb_backend_bundle(
     # qweb bundle will be replaced by empty string first and then will be merge into backend bundle
     replacements = [
         Replacement(*positions.entry_removal_span(qweb.key, qweb.value), ""),
-        *_merge_bundles(positions, qweb, backend),
+        *_prepare_merge_bundles(positions, qweb, backend),
     ]
 
     return _apply_replacements(manifest_content, replacements)
