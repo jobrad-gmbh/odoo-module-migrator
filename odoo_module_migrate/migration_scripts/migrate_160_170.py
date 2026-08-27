@@ -432,8 +432,7 @@ def _prepare_merge_bundles(
 
 
 def _apply_replacements(content: str, replacements: list[Replacement]) -> str:
-    """Apply the replacements from the last one to the first one, to keep offsets valid."""
-    for start, end, replacement in sorted(replacements, reverse=True):
+    for start, end, replacement in replacements:
         content = content[:start] + replacement + content[end:]
 
     return content
