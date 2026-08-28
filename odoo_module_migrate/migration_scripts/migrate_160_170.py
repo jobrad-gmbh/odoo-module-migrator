@@ -1,13 +1,13 @@
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
 from odoo_module_migrate.base_migration_script import BaseMigrationScript
+from odoo_module_migrate import ast_tools
 import lxml.etree as et
 from pathlib import Path
 import logging
-import sys
 import re
 import ast
-from typing import Any
+from typing import Any, NamedTuple
 
 empty_list = ast.parse("[]").body[0].value
 
@@ -340,10 +340,172 @@ def _replace_tesc_attribute_by_tout(
     logger.debug(f"Result for {module_name}:\n{{'Esc Expression Files': t_esc_data}}")
 
 
+QWEB_BUNDLE = "web.assets_qweb"
+BACKEND_BUNDLE = "web.assets_backend"
+
+
+class Bundle(NamedTuple):
+    """An `assets` entry of a manifest, its nodes being None when it is absent."""
+
+    key: ast.AST | None
+    value: ast.AST | None
+
+    @property
+    def exists(self) -> bool:
+        return self.key is not None
+
+    @property
+    def items(self) -> list[ast.AST]:
+        return self.value.elts if isinstance(self.value, ast.List) else []
+
+    @property
+    def is_list(self) -> bool:
+        return isinstance(self.value, ast.List)
+
+
+class Replacement(NamedTuple):
+    """A replacement of the `[start:end]` slice of the manifest source."""
+
+    start: int
+    end: int
+    replacement: str
+
+
+def _get_assets_bundles(manifest_content: str) -> tuple[Bundle, Bundle] | None:
+    """Return the (qweb, backend) bundles, or None if there is nothing to move."""
+    manifest_node = ast_tools.get_dict_node(manifest_content)
+
+    if manifest_node is None:
+        return None
+
+    __, assets_node = ast_tools.get_dict_entry(manifest_node, "assets")
+
+    if not isinstance(assets_node, ast.Dict):
+        return None
+
+    qweb_bundle = Bundle(*ast_tools.get_dict_entry(assets_node, QWEB_BUNDLE))
+    backend_bundle = Bundle(*ast_tools.get_dict_entry(assets_node, BACKEND_BUNDLE))
+
+    if not qweb_bundle.exists:
+        return None
+
+    return qweb_bundle, backend_bundle
+
+
+def _rename_bundle(positions: ast_tools.SourcePositions, qweb: Bundle) -> Replacement:
+    """Rename the qweb bundle, used when there is no backend bundle yet."""
+    start, end = positions.span(qweb.key)
+    renamed_key = positions.get_node_segment(qweb.key).replace(
+        QWEB_BUNDLE, BACKEND_BUNDLE
+    )
+
+    return Replacement(start, end, renamed_key)
+
+
+def _prepare_merge_bundles(
+    positions: ast_tools.SourcePositions, qweb: Bundle, backend: Bundle
+) -> list[Replacement]:
+    # Nothing to merge
+    if not qweb.items:
+        return []
+
+    # if backend has no items, items from qweb content just will be reindented and moved into backend
+    if not backend.items:
+        start, end = positions.span(backend.value)
+        moved_items = positions.reindent_segment(
+            qweb.value, positions.indent(backend.value)
+        )
+
+        return [Replacement(start, end, moved_items)]
+
+    known_items = {ast.dump(node) for node in backend.items}
+
+    # Only merge items that do not exist yet in backend bundle
+    new_items = [node for node in qweb.items if ast.dump(node) not in known_items]
+
+    if not new_items:
+        return []
+
+    offset, text = positions.insert_items(backend.value, new_items)
+
+    return [Replacement(offset, offset, text)]
+
+
+def _apply_replacements(content: str, replacements: list[Replacement]) -> str:
+    for start, end, replacement in replacements:
+        content = content[:start] + replacement + content[end:]
+
+    return content
+
+
+def _merge_qweb_backend_bundle(
+    logger: logging.Logger, manifest_content: str, module_name: str
+) -> str:
+    """Merge the `web.assets_qweb` bundle of a manifest into `web.assets_backend`.
+
+    Only the bundles themselves are rewritten, the rest of the manifest (comments,
+    quoting, formatting) is left untouched.
+    """
+    bundles = _get_assets_bundles(manifest_content)
+
+    if bundles is None:
+        return manifest_content
+
+    qweb, backend = bundles
+    positions = ast_tools.SourcePositions(manifest_content)
+
+    # Rename qweb bundle as backend due to the inexistence of backend bundle
+    if not backend.exists:
+        return _apply_replacements(manifest_content, [_rename_bundle(positions, qweb)])
+
+    if not qweb.is_list or not backend.is_list:
+        logger.warning(
+            f"{module_name}: {QWEB_BUNDLE} and/or {BACKEND_BUNDLE} is not defined as a list, the assets have to be moved manually."
+        )
+
+        return manifest_content
+
+    replacements = [
+        Replacement(
+            *positions.entry_removal_span(qweb.key, qweb.value), ""
+        ),  # prepare replacement object to remove QWEB_BUNDLE completely from manifest
+        *_prepare_merge_bundles(
+            positions, qweb, backend
+        ),  # prepare replacement object to merge items of QWEB_BUNDLE with BACKEND_BUNDLE
+    ]
+
+    return _apply_replacements(manifest_content, replacements)
+
+
+def _migrate_qweb_assets(
+    logger: logging.Logger,
+    module_path: Path,
+    module_name: str,
+    manifest_path: Path,
+    migration_steps,
+    tools,
+):
+    if not manifest_path or not manifest_path.exists():
+        return
+
+    manifest_content = tools._read_content(manifest_path)
+    modified_manifest_content = _merge_qweb_backend_bundle(
+        logger, manifest_content, module_name
+    )
+
+    if modified_manifest_content != manifest_content:
+        logger.info(
+            f"Moving the assets of {QWEB_BUNDLE} into {BACKEND_BUNDLE}"
+            f" for {module_name}"
+        )
+        tools._write_content(manifest_path, modified_manifest_content)
+
+
 class MigrationScript(BaseMigrationScript):
 
     _GLOBAL_FUNCTIONS = [
         _check_open_form,
+        _migrate_qweb_assets,
         _reformat_read_group,
         _replace_tesc_attribute_by_tout,
     ]
