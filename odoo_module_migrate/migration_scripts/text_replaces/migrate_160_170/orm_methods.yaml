@@ -1,0 +1,4 @@
+.py:
+  '(super\([^)]*\)\.)name_get\(\)': '\1read([''display_name''])' # super(...).name_get() replaced by super(...).read(['display_name'])
+  'name_get(?=\(self\))\b': compute_display_name # name_get(self) replaced by compute_display_name(self)
+  '(?<=\.)name_get(?=\(\))\b': compute_display_name # .name_get() replaced by .compute_display_name()
