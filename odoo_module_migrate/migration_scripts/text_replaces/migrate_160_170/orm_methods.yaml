@@ -2,3 +2,7 @@
   '(super\([^)]*\)\.)name_get\(\)': '\1read([''display_name''])' # super(...).name_get() replaced by super(...).read(['display_name'])
   'name_get(?=\(self\))\b': _compute_display_name # name_get(self) replaced by _compute_display_name(self)
   '(?<=\.)name_get(?=\(\))\b': _compute_display_name # .name_get() replaced by ._compute_display_name()
+
+  #invalidate_cache -> invalidate_recordset
+  '(?<=\.)invalidate_cache\(\s*(\[[^\]]*\]|[\w\.]+)\s*(?:,\s*[^)]+)?\)': 'invalidate_recordset(\1)' # (1 or 2 args): .invalidate_cache(fnames) / .invalidate_cache(fnames, ids) -> .invalidate_recordset(fnames)
+  '(?<=\.)invalidate_cache(?=\(\))\b': invalidate_recordset # (0 args): .invalidate_cache() -> .invalidate_recordset()
