@@ -237,6 +237,73 @@ def replace_read_group_signature(logger, filename):
             file.write(new_all)
 
 
+class VisitorGetResourcePath(AbstractVisitor):
+    """Rewrite get_resource_path(module, *segments) calls into file_path('module/.../segment').
+
+    get_resource_path() accepts any number of path segments and returns None when the
+    file doesn't exist. Its replacement, file_path(), takes a single '/'-joined path and
+    raises FileNotFoundError instead of returning None. Only calls whose arguments are all
+    string literals can be rewritten safely and unambiguously; other calls (variables,
+    f-strings, keyword arguments, ...) are left untouched and reported as a warning so they
+    can be reviewed and migrated by hand.
+    """
+
+    def __init__(self, logger: logging.Logger, filename: str) -> None:
+        super().__init__()
+        self.logger = logger
+        self.filename = filename
+
+    def visit_Call(self, node: ast.Call) -> Any:
+        is_get_resource_path_call = (
+            isinstance(node.func, ast.Name) and node.func.id == "get_resource_path"
+        ) or (
+            isinstance(node.func, ast.Attribute)
+            and node.func.attr == "get_resource_path"
+        )
+        if is_get_resource_path_call:
+            path_segments = [
+                arg.value
+                for arg in node.args
+                if isinstance(arg, ast.Constant) and isinstance(arg.value, str)
+            ]
+            if not node.args or node.keywords or len(path_segments) != len(node.args):
+                self.logger.error(
+                    "Found a get_resource_path() call that could not be migrated "
+                    "automatically to file_path(), check it manually "
+                    f"(line {node.lineno} of {self.filename})"
+                )
+            else:
+                self.add_change(node, f"file_path({'/'.join(path_segments)!r})")
+        self.generic_visit(node)
+
+
+def replace_get_resource_path_calls(logger, filename):
+    with open(filename, "r") as file:
+        current_code = file.read()
+
+    if "get_resource_path(" not in current_code:
+        return
+
+    visitor = VisitorGetResourcePath(logger, filename)
+    try:
+        visitor.visit(ast.parse(current_code))
+    except Exception:
+        logger.info(
+            f"ERROR in {filename} while migrating get_resource_path() calls:\n{current_code}"
+        )
+        raise
+    updated_code = visitor.post_process(current_code, filename)
+
+    if updated_code != current_code:
+        logger.info(
+            f"Replaced get_resource_path() call(s) with file_path() in file {filename}. "
+            "file_path() raises FileNotFoundError instead of returning None: "
+            "review any code relying on a falsy/None result."
+        )
+        with open(filename, "w") as file:
+            file.write(updated_code)
+
+
 def _get_files(module_path, reformat_file_ext):
     """Get files to be reformatted."""
     file_paths = list()
@@ -288,6 +355,18 @@ def _reformat_read_group(
         if reformatted_file:
             reformatted_files.append(reformatted_file)
     logger.debug("Reformatted files:\n" f"{list(reformatted_files)}")
+
+
+def _migrate_get_resource_path(
+    logger, module_path, module_name, manifest_path, migration_steps, tools
+):
+    """Rewrite get_resource_path() calls into file_path() in py files."""
+
+    reformat_file_ext = ".py"
+    file_paths = _get_files(module_path, reformat_file_ext)
+
+    for file_path in file_paths:
+        replace_get_resource_path_calls(logger, file_path)
 
 
 def replace_pattern_in_xml(
@@ -507,5 +586,6 @@ class MigrationScript(BaseMigrationScript):
         _check_open_form,
         _migrate_qweb_assets,
         _reformat_read_group,
+        _migrate_get_resource_path,
         _replace_tesc_attribute_by_tout,
     ]
