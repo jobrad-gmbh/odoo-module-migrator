@@ -1,0 +1,8 @@
+.py:
+  # get_resource_path -> file_path imported from odoo.tools.misc
+  # Call sites (get_resource_path(...) -> file_path(...)) are rewritten by the
+  # VisitorGetResourcePath AST visitor in migrate_160_170.py, since the number of
+  # path segments is arbitrary and only string-literal arguments can be rewritten
+  # safely.
+  'from odoo.modules import get_resource_path': 'from odoo.tools.misc import file_path'
+  'from odoo.modules.module import get_resource_path': 'from odoo.tools.misc import file_path'
