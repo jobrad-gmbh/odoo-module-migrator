@@ -1,0 +1,3 @@
+.py:
+  # Import path for PurchaseOrder
+  'from odoo.addons.purchase.models.purchase import PurchaseOrder': 'from odoo.addons.purchase.models.purchase_order import PurchaseOrder'
