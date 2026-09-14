@@ -1,3 +1,7 @@
 .py:
   # Import path for PurchaseOrder
   'from odoo.addons.purchase.models.purchase import PurchaseOrder': 'from odoo.addons.purchase.models.purchase_order import PurchaseOrder'
+
+  # Module renamed TestMailCommon -> MailCommon
+  # Import path for MailCommon
+  'from odoo.addons.test_mail.tests.common import TestMailCommon': 'from odoo.addons.mail.tests.common import MailCommon'
