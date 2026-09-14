@@ -5,3 +5,6 @@
   # Module renamed TestMailCommon -> MailCommon
   # Import path for MailCommon
   'from odoo.addons.test_mail.tests.common import TestMailCommon': 'from odoo.addons.mail.tests.common import MailCommon'
+
+  # Import path for RedisSessionStorage
+  'from odoo.addons.session_redis.models.session import RedisSessionStore': 'from odoo.addons.session_redis.session import RedisSessionStore'
