@@ -10,6 +10,7 @@ import ast
 from typing import Any, NamedTuple
 
 empty_list = ast.parse("[]").body[0].value
+get_resource_path_str = "get_resource_path"
 
 
 class AbstractVisitor(ast.NodeVisitor):
@@ -255,10 +256,10 @@ class VisitorGetResourcePath(AbstractVisitor):
 
     def visit_Call(self, node: ast.Call) -> Any:
         is_get_resource_path_call = (
-            isinstance(node.func, ast.Name) and node.func.id == "get_resource_path"
+            isinstance(node.func, ast.Name) and node.func.id == get_resource_path_str
         ) or (
             isinstance(node.func, ast.Attribute)
-            and node.func.attr == "get_resource_path"
+            and node.func.attr == get_resource_path_str
         )
         if is_get_resource_path_call:
             path_segments = [
@@ -281,7 +282,7 @@ def replace_get_resource_path_calls(logger: logging.Logger, filename: str) -> No
     with open(filename, "r") as file:
         current_code = file.read()
 
-    if "get_resource_path(" not in current_code:
+    if f"{get_resource_path_str}(" not in current_code:
         return
 
     visitor = VisitorGetResourcePath(logger, filename)
