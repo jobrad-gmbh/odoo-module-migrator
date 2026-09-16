@@ -277,7 +277,7 @@ class VisitorGetResourcePath(AbstractVisitor):
         self.generic_visit(node)
 
 
-def replace_get_resource_path_calls(logger, filename):
+def replace_get_resource_path_calls(logger: logging.Logger, filename: str) -> None:
     with open(filename, "r") as file:
         current_code = file.read()
 
