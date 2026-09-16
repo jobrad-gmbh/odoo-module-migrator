@@ -1,4 +1,11 @@
 .py:
+  # Import path for PurchaseOrder
+  'from odoo.addons.purchase.models.purchase import PurchaseOrder': 'from odoo.addons.purchase.models.purchase_order import PurchaseOrder'
+
+  # Module renamed TestMailCommon -> MailCommon
+  # Import path for MailCommon
+  'from odoo.addons.test_mail.tests.common import TestMailCommon': 'from odoo.addons.mail.tests.common import MailCommon'
+
   # get_resource_path -> file_path imported from odoo.tools.misc
   # Call sites (get_resource_path(...) -> file_path(...)) are rewritten by the
   # VisitorGetResourcePath AST visitor in migrate_160_170.py, since the number of
