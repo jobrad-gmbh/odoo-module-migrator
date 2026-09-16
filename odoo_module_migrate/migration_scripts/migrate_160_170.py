@@ -362,8 +362,7 @@ def _migrate_get_resource_path(
 ):
     """Rewrite get_resource_path() calls into file_path() in py files."""
 
-    reformat_file_ext = ".py"
-    file_paths = _get_files(module_path, reformat_file_ext)
+    file_paths = _get_files(module_path, reformat_file_ext=".py")
 
     for file_path in file_paths:
         replace_get_resource_path_calls(logger, file_path)
